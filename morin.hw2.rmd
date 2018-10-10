@@ -1,0 +1,513 @@
+---
+title: "PHP 2550 - HW#2"
+author: "Blain Morin"
+date: "October 12, 2018"
+output: pdf_document
+---
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE, results = 'hide'}
+
+### Load required packages
+
+require(readr) || install.packages("readr")
+require(stargazer) || install.packages("stargazer")
+require(ggplot2) || install.packages("ggplot2")
+require(GGally) || install.packages("GGally")
+require(scales) || install.packages("scales")
+require(HH) || install.packages("HH")
+require(dplyr) || install.package("dplyr")
+require(grid) || install.packages("grid")
+require(gridExtra) || install.packages("gridExtra")
+require(extrafont) || install.packages("extrafont")
+require(extrafontdb) || install.packages("extrafontdb")
+require(MASS) || install.packages("MASS")
+
+### Add "Computer Modern Font"
+font_install('fontcm')
+
+
+```
+
+# Part A
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE}
+
+### Read in data 
+baseline = read_csv("baseseg.csv")
+
+### Select relavent Columns (As per directions)
+baseline = baseline %>%
+  dplyr::select(gfr, bascre, sbase, dbase, baseu, AGE, SEX, black) %>%
+  filter(complete.cases(.))
+
+
+```
+
+```{r, results='asis', echo = FALSE}
+
+### Summary stats for data
+stargazer(as.data.frame(baseline), 
+          header = FALSE, 
+          digits = 2,
+          title = "Summary Statistics")
+
+```
+
+```{r, echo = FALSE, warning=FALSE, fig.width=12, fig.height=12}
+
+my_fn <- function(data, mapping, ...){
+  p <- ggplot(data = data, mapping = mapping) + 
+    geom_point() + 
+    geom_smooth(method=loess, fill="red", color="red", se = FALSE) +
+    geom_smooth(method=lm, fill="blue", color="blue", se = FALSE) +
+    scale_y_continuous(breaks = function(x) unique(floor(pretty(seq(0, (max(x) + 1) * 1.1)))))+
+    scale_x_continuous(breaks = function(x) unique(floor(pretty(seq(0, (max(x) + 1) * 1.1)))))+
+    theme_classic()
+  p
+}
+
+
+gpairs_lower <- function(g){
+  g$plots <- g$plots[-(1:g$nrow)]
+  g$yAxisLabels <- g$yAxisLabels[-1]
+  g$nrow <- g$nrow -1
+
+  g$plots <- g$plots[-(seq(g$ncol, length(g$plots), by = g$ncol))]
+  g$xAxisLabels <- g$xAxisLabels[-g$ncol]
+  g$ncol <- g$ncol - 1
+
+  g
+}
+
+g = baseline %>%
+  ggpairs(lower = list(continuous = my_fn),
+          upper  = list(continuous = "blank"),
+          diag  = list(continuous = "blankDiag"))
+
+gpairs_lower(g)
+
+```
+
+```{r, echo = FALSE}
+
+ladder(gfr ~ baseu, data = baseline)
+
+```
+
+```{r, echo = FALSE}
+#.5 is good for both bascre 
+#log is best (but not great) for baseu
+
+qqgfr = baseline %>% 
+  ggplot(aes(sample = I(gfr^.5))) +
+  stat_qq() +
+  stat_qq_line() + 
+  ggtitle("QQ Plot: GFR") +
+  xlab("Theoretical Score") +
+  ylab("Sample Score") +
+  theme_classic() +
+  theme(text=element_text(size=10,  family="CM Sans"))
+  
+
+qqbascre = baseline %>% 
+  ggplot(aes(sample = I(bascre^-.5))) +
+  stat_qq() +
+  stat_qq_line() + 
+  ggtitle("QQ Plot: Base Creatine") +
+  xlab("Theoretical Score") +
+  ylab("Sample Score") +
+  theme_classic() +
+  theme(text=element_text(size=10,  family="CM Sans"))
+
+qqbaseu = baseline %>% 
+  ggplot(aes(sample = I(log(baseu)))) +
+  stat_qq() +
+  stat_qq_line() + 
+  ggtitle("QQ Plot: Base Urine Protein") +
+  xlab("Theoretical Score") +
+  ylab("Sample Score") +
+  theme_classic() +
+  theme(text=element_text(size=10,  family="CM Sans"))
+
+qq.label = textGrob("Transformation Choices", gp=gpar(fontfamily = "CM Sans"))
+
+grid.arrange(qq.label, qqgfr, qqbascre, qqbaseu)
+
+```
+
+```{r, results='asis', echo = FALSE}
+
+attach(baseline)
+
+lm1 = lm(gfr ~ bascre + baseu + sbase + AGE + as.factor(SEX) + as.factor(black))
+lm2 = lm(I(gfr^.5) ~ I(bascre^(-.5)) + log(baseu) + sbase + AGE + as.factor(SEX) + as.factor(black))
+lm3 = lm(I(gfr^.5) ~ I(bascre^(-.5)) + sbase + AGE + as.factor(SEX) + as.factor(black))
+
+lm1$AIC = AIC(lm1)
+lm2$AIC = AIC(lm2)
+lm3$AIC = AIC(lm3)
+
+detach(baseline)
+stargazer(lm1, lm2, lm3, keep.stat = c("aic", "rsq", "n"), header = FALSE)
+
+```
+
+
+```{r, echo = FALSE, cache = TRUE}
+
+# Black Interactions
+
+### black and basecre
+black.cre = baseline %>%
+  ggplot(aes(x = I(bascre^-.5), y = gfr)) + 
+  geom_point(aes(color = as.factor(black)), size = .5) +
+  geom_smooth(method = "lm", se = FALSE, aes(color = as.factor(black))) +
+  theme_classic() +
+  theme(text=element_text(size=10,  family="CM Sans"))
+
+### black and baseu
+black.eu = baseline %>%
+  ggplot(aes(x = I(log(baseu)), y = gfr)) + 
+  geom_point(aes(color = as.factor(black)), size = .5, show.legend = FALSE) +
+  geom_smooth(method = "lm", se = FALSE, aes(color = as.factor(black)), show.legend = FALSE) +
+  theme_classic() +
+  theme(text=element_text(size=10,  family="CM Sans"))
+
+
+### black and sbase
+black.sbase = baseline %>%
+  ggplot(aes(x = sbase, y = gfr)) + 
+  geom_point(aes(color = as.factor(black)), size = .5, show.legend = FALSE) +
+  geom_smooth(method = "lm", se = FALSE, aes(color = as.factor(black)), show.legend = FALSE) +
+  theme_classic() +
+  theme(text=element_text(size=10,  family="CM Sans"))
+
+black.label = textGrob("Black Interactions", gp=gpar(fontfamily = "CM Sans"))
+
+grid.arrange(black.label, black.cre, black.eu, black.sbase)
+
+
+```
+
+```{r, echo = FALSE}
+
+# Male interactions
+
+### male and basecre
+male.cre = baseline %>%
+  ggplot(aes(x = I(bascre^-.5), y = gfr)) + 
+  geom_point(aes(color = as.factor(SEX)), size = .5) +
+  geom_smooth(method = "lm", se = FALSE, aes(color = as.factor(SEX))) +
+  ggtitle("Baseline Creatine") +
+  xlab("GFR") +
+  ylab("Baseline Creatine ^-.5") +
+  labs(color = "Sex") +
+  theme_classic() +
+  theme(text=element_text(size=10,  family="CM Sans"))
+
+### black and baseu
+male.eu = baseline %>%
+  ggplot(aes(x = I(log(baseu)), y = gfr)) + 
+  geom_point(aes(color = as.factor(SEX)), size = .5, show.legend = FALSE) +
+  geom_smooth(method = "lm", se = FALSE, aes(color = as.factor(SEX)), show.legend = FALSE) +
+  ggtitle("Basline Urine Protein") +
+  xlab("log(Baseline Urine Protein)") +
+  ylab("GFR") +
+  theme_classic() +
+  theme(text=element_text(size=10,  family="CM Sans"))
+
+
+### black and sbase
+male.sbase = baseline %>%
+  ggplot(aes(x = sbase, y = gfr)) + 
+  geom_point(aes(color = as.factor(SEX)), size = .5, show.legend = FALSE) +
+  geom_smooth(method = "lm", se = FALSE, aes(color = as.factor(SEX)), show.legend = FALSE) +
+  ggtitle("Baseline Systolic BP") +
+  xlab("Systolic BP") +
+  ylab("GFR") +
+  theme_classic() +
+  theme(text=element_text(size=10,  family="CM Sans"))
+
+male.label = textGrob("Male Interactions", gp=gpar(fontfamily = "CM Sans"))
+
+grid.arrange(male.label, male.cre, male.eu, male.sbase)
+
+```
+
+```{r, results = 'asis'}
+
+attach(baseline)
+
+lm4 = lm(I(gfr^.5) ~ I(bascre^(-.5)) + 
+           log(baseu) + 
+           sbase + AGE + 
+           as.factor(SEX) + as.factor(black) +
+           as.factor(black):sbase +
+           as.factor(SEX):sbase)
+
+lm4$AIC = AIC(lm4)
+
+stargazer(lm4, keep.stat = c("aic", "rsq", "n"), header = FALSE)
+
+detach(baseline)
+
+```
+
+# Part B
+
+## 1. First you will explore type 1 and type 2 errors with a simple regression.
+
+### a. Simulate a random vector y of length 100 in which each element follows a normal distribution with mean 10 and variance 4. Then simulate a random vector x of length 100 with mean 3 and variance 1.
+
+```{r}
+
+set.seed(10)
+
+y = rnorm(n =100, mean = 10, sd = 2)
+x = rnorm(n = 100, mean = 3, sd = 1)
+
+
+```
+
+### b. Regress y on x and save the p-value for the slope (HINT: use the summary.lm function or summary(lmobject) and use the coef element of the summary object if using R)
+
+```{r}
+
+reg1 = lm(y ~ x)
+
+reg1.sum = summary.lm(reg1)
+
+reg1.p = reg1.sum$coefficients[2,4]
+
+```
+
+### c. What do you think this p-value should be?
+
+### d. Now replicate this procedure 1000 times to develop a simulation.
+
+```{r}
+
+set.seed(88)
+
+n = 100
+n.sims = 1000
+
+xs = matrix(0, nrow = n, ncol = n.sims)
+ys = matrix(0, nrow = n, ncol = n.sims)
+
+for (i in 1:n.sims) {
+  
+  xs[,i] = rnorm(n = 100, mean = 3, sd = 1)
+  
+}
+
+for (i in 1:n.sims) {
+  
+  ys[,i] = rnorm(n =100, mean = 10, sd = 2)
+  
+}
+
+
+
+ps = c()
+
+for (i in 1:n.sims) {
+  
+  reg = lm(ys[,i] ~ xs[,i])
+  p = summary.lm(reg)
+  reg.p = p$coefficients[2,4]
+  ps[i] = reg.p
+  
+}
+
+
+
+```
+
+###  e. Calculate the proportion of times the p-value is less than 0.05. How does this match with your intuition? [HINT: Should the slope be related to the outcome? What type of error are you simulating?]
+
+```{r}
+
+length(which(ps < .05)) / n.sims
+
+
+```
+
+### f. 
+
+Now simulate y and x together so that the conditional mean of y given x is 10+x and the conditional variance is 1. Repeat b-e above for this distribution. How does your answer differ from the first simulation? What are you simulating now? [HINT: Consider if the slope is actually related to the outcome]
+
+```{r}
+
+
+set.seed(99)
+
+xs2 = matrix(0, nrow = n, ncol = n.sims)
+ys2 = matrix(0, nrow = n, ncol = n.sims)
+
+for (i in 1:n.sims) {
+  
+  xs2[,i] = rnorm(n = 100, mean = 3, sd = 1)
+  
+}
+
+for (j in 1:n.sims) {
+  
+  for (i in 1:n) {
+    
+    ys2[i,j] = rnorm(n = 1, mean = xs2[i,j] + 10, sd = 1)
+    
+  }
+  
+  
+}
+
+
+ps2 = c()
+for (i in 1:n.sims) {
+  
+  reg = lm(ys2[,i] ~ xs2[,i])
+  p = summary.lm(reg)
+  reg.p = p$coefficients[2,4]
+  ps2[i] = reg.p
+    
+  
+}
+
+
+length(which(ps2 < .05)) / n.sims
+
+
+```
+
+
+## 2. Now we will investigate overfitting which occurs when you are making too complex a model. First we will simulate some data in which y and multiple x's are unrelated.
+
+### a. Extend the function you have written to carry out exercise 1 so that you now generate the same y vector as in 1a (i.e. 100 draws from N(10,4)) but you now generate 100 draws from an 3-variate multivariate normal X matrix with means 1, 2, 3 and covariance matrix equal to the identity matrix of rank 3 (i.e., each X variable has variance 1 and they are uncorrelated). [HiNT: use the mvrnorm function in the MASS library to generate multivariate normal draws].
+
+### b. Regress y on the X matrix and save the p-values from this regression. In R if you specify X as a matrix in the call to the lm() function, it will automatically use the formula y~x[,1]+x[,2]+… i.e. it will use the columns of the matrix as the predictors.
+
+```{r}
+
+set.seed(100)
+params = 3
+sigma = diag(1, nrow = 3, ncol = 3)
+
+
+mv.ps = matrix(0, nrow = n.sims, ncol = params)
+
+for (i in 1:n.sims) {
+  
+  x = mvrnorm(n = 100, mu = c(1,2,3), Sigma = sigma)
+  y = rnorm(n =100, mean = 10, sd = 2)
+  reg = lm(y ~ x)
+  sum.reg = summary.lm(reg)
+  reg.p = sum.reg$coefficients[I(1:params+1), 4]
+  mv.ps[i,] = reg.p
+  
+}
+
+```
+
+### c. Determine how many of the p-values for each variable are significant at the 0.05 level.
+
+```{r}
+
+apply(mv.ps, 2, function(x) length(which(x < .05)))
+
+```
+
+
+### d. Compute the minimum p-value for each regression and calculate how many times the minimum p-value is less than 0.05. Why is this answer different from those in question c?
+
+```{r}
+
+min.p = c()
+
+for (i in 1:n.sims) {
+  
+  min.p[i] = min(mv.ps[i,])
+  
+}
+
+
+length(which(min.p < .05))
+
+
+```
+
+### e. Now repeat this exercise changing the number of predictors P so that you do it for P = 3, 5, 10, 20, 50, 90. Compute the minimum p-value in each simulated regression and plot the number of times you find at least one significant variable for each P. What pattern do you see? How do you explain this?
+
+```{r}
+
+set.seed(4)
+
+params = c(3, 5, 10, 20, 50, 90)
+
+results = matrix(0, nrow = length(params), ncol = 2)
+
+for (i in 1:length(params)){
+  
+  sigma = diag(1, nrow = params[i], ncol = params[i])
+  results[i, 1] = params[i]
+  mv.ps = matrix(0, nrow = n.sims, ncol = params[i])
+  
+  for (j in 1:n.sims) {
+    
+    x = mvrnorm(n = 100, mu = 1:params[i], Sigma = sigma)
+    y = rnorm(n =100, mean = 10, sd = 2)
+    reg = lm(y ~ x)
+    sum.reg = summary.lm(reg)
+    reg.p = sum.reg$coefficients[I(1:params[i]+1), 4]
+    mv.ps[j,] = reg.p
+    
+  }
+  
+  min.p = apply(mv.ps, 1, min)
+  results[i, 2] = length(which(min.p < .05))
+  
+  
+  
+}
+
+
+```
+
+### e. Set P equal to every number from 1 to 99 (i.e. you try models with all possible number of predictors) and run more simulations to reduce simulation error.
+
+```{r}
+
+set.seed(4)
+
+params = 1:99
+
+results2 = matrix(0, nrow = length(params), ncol = 2)
+
+for (i in 1:length(params)){
+  
+  sigma = diag(1, nrow = params[i], ncol = params[i])
+  results2[i, 1] = params[i]
+  mv.ps = matrix(0, nrow = n.sims, ncol = params[i])
+  
+  for (j in 1:n.sims) {
+    
+    x = mvrnorm(n = 100, mu = 1:params[i], Sigma = sigma)
+    y = rnorm(n =100, mean = 10, sd = 2)
+    reg = lm(y ~ x)
+    sum.reg = summary.lm(reg)
+    reg.p = sum.reg$coefficients[I(1:params[i]+1), 4]
+    mv.ps[j,] = reg.p
+    
+  }
+  
+  min.p = apply(mv.ps, 1, min)
+  results2[i, 2] = length(which(min.p < .05))
+  
+  
+  
+}
+
+
+```
+
+
