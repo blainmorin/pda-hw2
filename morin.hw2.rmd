@@ -43,6 +43,8 @@ baseline = baseline %>%
 
 ```
 
+Before model fitting, we first did some exploratory analysis of the data. Here is a summary table of the variables relavant to the assignment (observations with missing values were dropped from analysis): 
+
 ```{r, results='asis', echo = FALSE}
 
 ### Summary stats for data
@@ -52,6 +54,10 @@ stargazer(as.data.frame(baseline),
           title = "Summary Statistics")
 
 ```
+
+We see that the data set contains 1,249 complete observations. The first six rows have the summary statistics for the continuous variables (in order: glomerular filtration rate, baseline creatine, systolic blood pressure, diastolic blood pressure, urine protein, and age). The last two rows are binary variables (sex = 1 if male, black = 1 if black). For the binary variables, the mean represents the proportion of observations with that characteristic. 
+
+We then looked at scatterplots between each of the variable:
 
 ```{r, echo = FALSE, warning=FALSE, fig.width=12, fig.height=12}
 
@@ -82,27 +88,54 @@ gpairs_lower <- function(g){
 g = baseline %>%
   ggpairs(lower = list(continuous = my_fn),
           upper  = list(continuous = "blank"),
-          diag  = list(continuous = "blankDiag"))
+          diag  = list(continuous = "blankDiag")) +
+  ggtitle("Pairs Plot") +
+  theme(text=element_text(size=10,  family="CM Sans"))
 
 gpairs_lower(g)
 
 ```
 
+In the pairs plot above, the blue line is a linear model fit and the red line is a LOESS smooth fit. The first column of plots contains the relationship of our dependent variable (GFR) with all the independent variables in our data set. If the blue line has a positive slope, this indicates a positive relationship between GFR and the independent varbiable. For example, the positive slope in the GFR and sex plot may indicate the males have a higher GFR than women on average. 
+
+We see from the pairs plot that the relationship between GFR and baseline creatine and the relationship between GFR and baseline urine protien may not be linear. We also see in the baseline urine protien plot that the errors in the linear regression are higher for lower GFR values and they are for higher values. These heterogeneous erros would violate our linear model assumptions. We will try to fix these problems using transformations.
+
+Another potential problem with our data is seen in the GFR and black plot. We see that there are observations for a larger range of GFRs for white people, whereas there are only observations of black people with low GFRs. This may represent a sampling bias, which would affect the validity of our counclusions. 
+
+We then explored transformations of GFR, baseline creatine, and baseline urine protein. We used ladder plots, which creates scatterplots of all the combinations of common transformations:
+
 ```{r, echo = FALSE}
 
-ladder(gfr ~ baseu, data = baseline)
+pdf(family="CM Sans")
+
+trellis.par.set(grid.pars = list(fontfamily = "CM Sans")) 
 
 ```
 
 ```{r, echo = FALSE}
-#.5 is good for both bascre 
-#log is best (but not great) for baseu
+
+ladder(gfr ~ bascre, data = baseline,
+       main.in = "Ladder of Powers: GFR and Creatine")
+
+ladder(gfr ~ baseu, data = baseline, 
+       main.in = "Ladder of Powers: GFR and Urine Protein")
+
+
+```
+
+In the ladder plots above, we are searching for the combinations that make a linear trend and create a good spread. From visual inspection it, it looks like the square root transformation of GFR and the log transformation of creatine and urine protein may be good transformation candidates. 
+
+We checked these transformations on quantile-quantile plots:
+
+```{r, echo = FALSE}
+#.5 is good for GFR 
+#log is best (but not great) for baseu and bascre
 
 qqgfr = baseline %>% 
   ggplot(aes(sample = I(gfr^.5))) +
   stat_qq() +
   stat_qq_line() + 
-  ggtitle("QQ Plot: GFR") +
+  ggtitle("QQ Plot: GFR^.5") +
   xlab("Theoretical Score") +
   ylab("Sample Score") +
   theme_classic() +
@@ -110,10 +143,10 @@ qqgfr = baseline %>%
   
 
 qqbascre = baseline %>% 
-  ggplot(aes(sample = I(bascre^-.5))) +
+  ggplot(aes(sample = I(log(bascre)))) +
   stat_qq() +
   stat_qq_line() + 
-  ggtitle("QQ Plot: Base Creatine") +
+  ggtitle("log(QQ Plot: Base Creatine)") +
   xlab("Theoretical Score") +
   ylab("Sample Score") +
   theme_classic() +
@@ -123,7 +156,7 @@ qqbaseu = baseline %>%
   ggplot(aes(sample = I(log(baseu)))) +
   stat_qq() +
   stat_qq_line() + 
-  ggtitle("QQ Plot: Base Urine Protein") +
+  ggtitle("QQ Plot: log(Base Urine Protein)") +
   xlab("Theoretical Score") +
   ylab("Sample Score") +
   theme_classic() +
@@ -135,13 +168,15 @@ grid.arrange(qq.label, qqgfr, qqbascre, qqbaseu)
 
 ```
 
+In the QQ plots above, the diagonal line represents a perfect normal distribution. We see that for both GFR and creatine, the sample quantile is less extreme than a normal distribution, which indicates that the sample data has thin tails. In the urine protein plot, we see that many of the points in the lower quantiles have the same value. This horizontal portion may represent a measurement threshold cutoff. 
+
 ```{r, results='asis', echo = FALSE}
 
 attach(baseline)
 
 lm1 = lm(gfr ~ bascre + baseu + sbase + AGE + as.factor(SEX) + as.factor(black))
-lm2 = lm(I(gfr^.5) ~ I(bascre^(-.5)) + log(baseu) + sbase + AGE + as.factor(SEX) + as.factor(black))
-lm3 = lm(I(gfr^.5) ~ I(bascre^(-.5)) + sbase + AGE + as.factor(SEX) + as.factor(black))
+lm2 = lm(I(gfr^.5) ~ log(bascre) + log(baseu) + sbase + AGE + as.factor(SEX) + as.factor(black))
+lm3 = lm(I(gfr^.5) ~ log(bascre) + sbase + AGE + as.factor(SEX) + as.factor(black))
 
 lm1$AIC = AIC(lm1)
 lm2$AIC = AIC(lm2)
@@ -159,7 +194,7 @@ stargazer(lm1, lm2, lm3, keep.stat = c("aic", "rsq", "n"), header = FALSE)
 
 ### black and basecre
 black.cre = baseline %>%
-  ggplot(aes(x = I(bascre^-.5), y = gfr)) + 
+  ggplot(aes(x = I(log(bascre)), y = I(gfr^.5))) + 
   geom_point(aes(color = as.factor(black)), size = .5) +
   geom_smooth(method = "lm", se = FALSE, aes(color = as.factor(black))) +
   theme_classic() +
@@ -167,7 +202,7 @@ black.cre = baseline %>%
 
 ### black and baseu
 black.eu = baseline %>%
-  ggplot(aes(x = I(log(baseu)), y = gfr)) + 
+  ggplot(aes(x = I(log(baseu)), y = I(gfr^.5))) + 
   geom_point(aes(color = as.factor(black)), size = .5, show.legend = FALSE) +
   geom_smooth(method = "lm", se = FALSE, aes(color = as.factor(black)), show.legend = FALSE) +
   theme_classic() +
@@ -176,7 +211,7 @@ black.eu = baseline %>%
 
 ### black and sbase
 black.sbase = baseline %>%
-  ggplot(aes(x = sbase, y = gfr)) + 
+  ggplot(aes(x = sbase, y = I(gfr^.5))) + 
   geom_point(aes(color = as.factor(black)), size = .5, show.legend = FALSE) +
   geom_smooth(method = "lm", se = FALSE, aes(color = as.factor(black)), show.legend = FALSE) +
   theme_classic() +
@@ -195,7 +230,7 @@ grid.arrange(black.label, black.cre, black.eu, black.sbase)
 
 ### male and basecre
 male.cre = baseline %>%
-  ggplot(aes(x = I(bascre^-.5), y = gfr)) + 
+  ggplot(aes(x = I(log(bascre)), y = I(gfr^.5))) + 
   geom_point(aes(color = as.factor(SEX)), size = .5) +
   geom_smooth(method = "lm", se = FALSE, aes(color = as.factor(SEX))) +
   ggtitle("Baseline Creatine") +
@@ -207,7 +242,7 @@ male.cre = baseline %>%
 
 ### black and baseu
 male.eu = baseline %>%
-  ggplot(aes(x = I(log(baseu)), y = gfr)) + 
+  ggplot(aes(x = I(log(baseu)), y = I(gfr^.5))) + 
   geom_point(aes(color = as.factor(SEX)), size = .5, show.legend = FALSE) +
   geom_smooth(method = "lm", se = FALSE, aes(color = as.factor(SEX)), show.legend = FALSE) +
   ggtitle("Basline Urine Protein") +
@@ -219,7 +254,7 @@ male.eu = baseline %>%
 
 ### black and sbase
 male.sbase = baseline %>%
-  ggplot(aes(x = sbase, y = gfr)) + 
+  ggplot(aes(x = sbase, y = I(gfr^.5))) + 
   geom_point(aes(color = as.factor(SEX)), size = .5, show.legend = FALSE) +
   geom_smooth(method = "lm", se = FALSE, aes(color = as.factor(SEX)), show.legend = FALSE) +
   ggtitle("Baseline Systolic BP") +
@@ -475,7 +510,7 @@ for (i in 1:length(params)){
 
 ### e. Set P equal to every number from 1 to 99 (i.e. you try models with all possible number of predictors) and run more simulations to reduce simulation error.
 
-```{r}
+```{r, cache=TRUE}
 
 set.seed(4)
 
