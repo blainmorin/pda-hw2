@@ -9,6 +9,8 @@ output: pdf_document
 
 ### Load required packages
 
+require(knitr) || install.packages("knitr")
+require(kableExtra) || install.packages("kableExtra")
 require(readr) || install.packages("readr")
 require(stargazer) || install.packages("stargazer")
 require(ggplot2) || install.packages("ggplot2")
@@ -102,7 +104,7 @@ We see from the pairs plot that the relationship between GFR and baseline creati
 
 Another potential problem with our data is seen in the GFR and black plot. We see that there are observations for a larger range of GFRs for white people, whereas there are only observations of black people with low GFRs. This may represent a sampling bias, which would affect the validity of our counclusions. 
 
-We then explored transformations of GFR, baseline creatine, and baseline urine protein. We used ladder plots, which creates scatterplots of all the combinations of common transformations:
+We then explored transformations of GFR, baseline creatine, and baseline urine protein using ladder plots (which create scatterplots of all the combinations of common transformations):
 
 ```{r, echo = FALSE}
 
@@ -123,19 +125,17 @@ ladder(gfr ~ baseu, data = baseline,
 
 ```
 
-In the ladder plots above, we are searching for the combinations that make a linear trend and create a good spread. From visual inspection it, it looks like the square root transformation of GFR and the log transformation of creatine and urine protein may be good transformation candidates. 
+In the ladder plots above, we are searching for the combinations that make a linear trend and create a good spread. From visual inspection it, it looks like using a log transformation for GFR, creatine and urine protein may be a good transformation candidate.
 
 We checked these transformations on quantile-quantile plots:
 
 ```{r, echo = FALSE}
-#.5 is good for GFR 
-#log is best (but not great) for baseu and bascre
 
 qqgfr = baseline %>% 
-  ggplot(aes(sample = I(gfr^.5))) +
+  ggplot(aes(sample = log(gfr))) +
   stat_qq() +
   stat_qq_line() + 
-  ggtitle("QQ Plot: GFR^.5") +
+  ggtitle("QQ Plot: log(GFR)") +
   xlab("Theoretical Score") +
   ylab("Sample Score") +
   theme_classic() +
@@ -168,25 +168,30 @@ grid.arrange(qq.label, qqgfr, qqbascre, qqbaseu)
 
 ```
 
-In the QQ plots above, the diagonal line represents a perfect normal distribution. We see that for both GFR and creatine, the sample quantile is less extreme than a normal distribution, which indicates that the sample data has thin tails. In the urine protein plot, we see that many of the points in the lower quantiles have the same value. This horizontal portion may represent a measurement threshold cutoff. 
+In the QQ plots above, the diagonal line represents a perfect normal distribution. We see that the distribution of log(GFR) is a bit left skewed. For log(creatine), the sample quantile is less spread out than a normal distribution, which indicates that the sample data has thin tails. In the urine protein plot, we see that many of the points in the lower quantiles have the same value. This horizontal portion may represent a measurement threshold cutoff. 
+
+We then ran three linear models. We did not include diastolic blood pressure in any of the models because of its high correlation with systolic blood pressure. In the first model we regressed an untransformed GFR on all the other independent variables (except diastolic). In the second model, we used transformed variables as identified above. The third model is uses transformed variables, but drops urine protein from the regression (because of the lack of normality seen in its QQ plot). Here are the results from the three regressions:
 
 ```{r, results='asis', echo = FALSE}
 
 attach(baseline)
 
 lm1 = lm(gfr ~ bascre + baseu + sbase + AGE + as.factor(SEX) + as.factor(black))
-lm2 = lm(I(gfr^.5) ~ log(bascre) + log(baseu) + sbase + AGE + as.factor(SEX) + as.factor(black))
-lm3 = lm(I(gfr^.5) ~ log(bascre) + sbase + AGE + as.factor(SEX) + as.factor(black))
+lm2 = lm(log(gfr) ~ log(bascre) + log(baseu) + sbase + AGE + as.factor(SEX) + as.factor(black))
+lm3 = lm(log(gfr) ~ log(bascre) + sbase + AGE + as.factor(SEX) + as.factor(black))
 
 lm1$AIC = AIC(lm1)
 lm2$AIC = AIC(lm2)
 lm3$AIC = AIC(lm3)
 
 detach(baseline)
-stargazer(lm1, lm2, lm3, keep.stat = c("aic", "rsq", "n"), header = FALSE)
+stargazer(lm1, lm2, lm3, keep.stat = c("aic", "rsq", "n"), header = FALSE, se = NULL, notes = "Standard errors in ()")
 
 ```
 
+We see from the improvement in r squared that model 2 and 3, which used transformed variables, is a better fit than model 1, which does not use transformed variables. Since the AIC is lower in model 2, we know that including log(urine protein) significantly improves our model fit, despite the possible measurement errors found above. 
+
+Next, we checked for variable interactions. From intuition, we decided to graphically check for interactions between race and creatine, urine protein, and blood pressure and also interactions between sex and creatine, urine protein, and blood pressure:
 
 ```{r, echo = FALSE, cache = TRUE}
 
@@ -194,7 +199,7 @@ stargazer(lm1, lm2, lm3, keep.stat = c("aic", "rsq", "n"), header = FALSE)
 
 ### black and basecre
 black.cre = baseline %>%
-  ggplot(aes(x = I(log(bascre)), y = I(gfr^.5))) + 
+  ggplot(aes(x = I(log(bascre)), y = log(gfr))) + 
   geom_point(aes(color = as.factor(black)), size = .5) +
   geom_smooth(method = "lm", se = FALSE, aes(color = as.factor(black))) +
   theme_classic() +
@@ -202,7 +207,7 @@ black.cre = baseline %>%
 
 ### black and baseu
 black.eu = baseline %>%
-  ggplot(aes(x = I(log(baseu)), y = I(gfr^.5))) + 
+  ggplot(aes(x = I(log(baseu)), y = log(gfr))) + 
   geom_point(aes(color = as.factor(black)), size = .5, show.legend = FALSE) +
   geom_smooth(method = "lm", se = FALSE, aes(color = as.factor(black)), show.legend = FALSE) +
   theme_classic() +
@@ -211,7 +216,7 @@ black.eu = baseline %>%
 
 ### black and sbase
 black.sbase = baseline %>%
-  ggplot(aes(x = sbase, y = I(gfr^.5))) + 
+  ggplot(aes(x = sbase, y = log(gfr))) + 
   geom_point(aes(color = as.factor(black)), size = .5, show.legend = FALSE) +
   geom_smooth(method = "lm", se = FALSE, aes(color = as.factor(black)), show.legend = FALSE) +
   theme_classic() +
@@ -230,7 +235,7 @@ grid.arrange(black.label, black.cre, black.eu, black.sbase)
 
 ### male and basecre
 male.cre = baseline %>%
-  ggplot(aes(x = I(log(bascre)), y = I(gfr^.5))) + 
+  ggplot(aes(x = I(log(bascre)), y = log(gfr))) + 
   geom_point(aes(color = as.factor(SEX)), size = .5) +
   geom_smooth(method = "lm", se = FALSE, aes(color = as.factor(SEX))) +
   ggtitle("Baseline Creatine") +
@@ -242,7 +247,7 @@ male.cre = baseline %>%
 
 ### black and baseu
 male.eu = baseline %>%
-  ggplot(aes(x = I(log(baseu)), y = I(gfr^.5))) + 
+  ggplot(aes(x = I(log(baseu)), y = log(gfr))) + 
   geom_point(aes(color = as.factor(SEX)), size = .5, show.legend = FALSE) +
   geom_smooth(method = "lm", se = FALSE, aes(color = as.factor(SEX)), show.legend = FALSE) +
   ggtitle("Basline Urine Protein") +
@@ -254,7 +259,7 @@ male.eu = baseline %>%
 
 ### black and sbase
 male.sbase = baseline %>%
-  ggplot(aes(x = sbase, y = I(gfr^.5))) + 
+  ggplot(aes(x = sbase, y = log(gfr))) + 
   geom_point(aes(color = as.factor(SEX)), size = .5, show.legend = FALSE) +
   geom_smooth(method = "lm", se = FALSE, aes(color = as.factor(SEX)), show.legend = FALSE) +
   ggtitle("Baseline Systolic BP") +
@@ -269,11 +274,13 @@ grid.arrange(male.label, male.cre, male.eu, male.sbase)
 
 ```
 
-```{r, results = 'asis'}
+In the scatter plots above, a significant interaction would surface as a difference in slopes between the two groups. Visually, it appears that there may be a significant interaction between race and blood pressure and also a significant interaction between sex and blood pressure. To check this significance, we added the two interactions to model (2) from above:
+
+```{r, results = 'asis', echo = FALSE}
 
 attach(baseline)
 
-lm4 = lm(I(gfr^.5) ~ I(bascre^(-.5)) + 
+lm4 = lm(log(gfr) ~ I(bascre^(-.5)) + 
            log(baseu) + 
            sbase + AGE + 
            as.factor(SEX) + as.factor(black) +
@@ -288,6 +295,39 @@ detach(baseline)
 
 ```
 
+
+We see that the interaction terms are not significant. 
+
+We can also brute force check every combination of second order interactions:
+
+```{r, results = 'asis', echo = FALSE}
+
+lm5 = lm(log(gfr) ~ (log(bascre) + log(baseu) + sbase + AGE + as.factor(SEX) + as.factor(black))^2, 
+         data = baseline)
+
+anova.table = as.data.frame(anova(lm5))
+
+anova.table = anova.table %>%
+  rename(p = "Pr(>F)")
+
+anova.table %>%
+  kable(format = "latex", booktabs = TRUE, caption = "All Second Order Interactions") %>%
+  row_spec(row = which(anova.table$p <.05), color = "red")
+
+```
+
+```{r, echo = FALSE, results = 'asis'}
+
+lm6 = lm(log(gfr) ~ log(bascre) + 
+           log(baseu) + sbase + AGE +
+           as.factor(SEX) + as.factor(black) + 
+           log(bascre):log(baseu), data = baseline)
+
+lm6$AIC = AIC(lm6)
+
+stargazer(lm6, keep.stat = c("aic", "rsq", "n"), header = FALSE)
+
+```
 # Part B
 
 ## 1. First you will explore type 1 and type 2 errors with a simple regression.
