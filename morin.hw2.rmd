@@ -185,7 +185,12 @@ lm2$AIC = AIC(lm2)
 lm3$AIC = AIC(lm3)
 
 detach(baseline)
-stargazer(lm1, lm2, lm3, keep.stat = c("aic", "rsq", "n"), header = FALSE, se = NULL, notes = "Standard errors in ()")
+stargazer(lm1, lm2, lm3, 
+          keep.stat = c("aic", "rsq", "n"), 
+          header = FALSE, 
+          se = NULL, 
+          notes = "Standard errors in ()",
+          table.placement = "H" )
 
 ```
 
@@ -289,7 +294,10 @@ lm4 = lm(log(gfr) ~ I(bascre^(-.5)) +
 
 lm4$AIC = AIC(lm4)
 
-stargazer(lm4, keep.stat = c("aic", "rsq", "n"), header = FALSE)
+stargazer(lm4, 
+          keep.stat = c("aic", "rsq", "n"), 
+          header = FALSE,
+          table.placement = "H" )
 
 detach(baseline)
 
@@ -312,9 +320,12 @@ anova.table = anova.table %>%
 
 anova.table %>%
   kable(format = "latex", booktabs = TRUE, caption = "All Second Order Interactions") %>%
-  row_spec(row = which(anova.table$p <.05), color = "red")
+  row_spec(row = which(anova.table$p <.05), color = "red") %>%
+  kable_styling(latex_options = "HOLD_position")
 
 ```
+
+The rows highlighted in red in the table above show the variables with p values less than .05. We see the the interaction between log baseline creatine and lod baseline urine protein is significant. Adding this interaction to our model (2) from above, the new regression results are:
 
 ```{r, echo = FALSE, results = 'asis'}
 
@@ -325,19 +336,93 @@ lm6 = lm(log(gfr) ~ log(bascre) +
 
 lm6$AIC = AIC(lm6)
 
-stargazer(lm6, keep.stat = c("aic", "rsq", "n"), header = FALSE)
+stargazer(lm6, 
+          keep.stat = c("aic", "rsq", "n"), 
+          header = FALSE, 
+          table.placement = "H" )
 
 ```
+
+Although the new model has a better fit than model (2), the improvment is small. Since we did multiple comparisons to find the added interaction, we should be wary of including it in the model. Because the effect size and AIC improvement is relatively small, we elected to exclude the log baseline creatine and log baseline urine protein from our regression. Overall, our best model choice is model (2):
+
+```{r, echo = FALSE, results = 'asis'}
+
+stargazer(lm2, 
+          keep.stat = c("aic", "rsq", "n"), 
+          header = FALSE, 
+          title = "Best Model",
+          se = NULL, 
+          notes = "Standard errors in ()",
+          table.placement = "H")
+
+```
+
+The coefficient for log(bascre) means that for a 10% increase in baseline creatine, we expect an 11% decrease in GFR (1.1^-1.207 = .89). The coefficient for log(baseu) has a similar interpretation: for a 10% increase in baseline urine protein, we expect a .4% decrease in GFR (1.1^.039 = .996). The coefficient on systolic blood pressure means that for a one unit increase of blood pressure, we expect a .0002% decrease in GFR (exp(-.0002 = .9998)). The coefficient on age means that for every additional year of age, we expect a .002% decrease in GFR (exp(-.002 = .998)). The coefficient on sex means that we expect males to have a 27% higher GFR measurements than those of females (exp(.24) = 1.27). The coefficient on black means that we expect blacks to have a 12% higher GFR measurement than non-blacks (exp(.115) = 1.12).
+
+Overall, all of the variables are significant at the .05 level except for systolic blood pressure. Lastly, we checked some regression diagnostics:
+
+```{r, fig.height=8, echo = FALSE}
+baseline$resis = residuals(lm2)
+
+resi.plot = ggplot(lm2) +
+  geom_point(aes(x = .fitted, 
+                 y = .stdresid, 
+                 color = abs(.stdresid),
+                 size = abs(.stdresid)), show.legend = FALSE) +
+  theme_classic() +
+  scale_color_continuous(low = "black", high = "red") +
+  xlab("Fitted Value") +
+  ylab("Standardized Residual") +
+  ggtitle("Residuals Plot") +
+  theme(text=element_text(size=10,  family="CM Sans"))
+
+resi.hist = ggplot(lm2) +
+  geom_histogram(aes(.resid), binwidth = .5,color = "black", fill = "white") +
+  xlab("Standardized Residual") +
+  ylab("Count") +
+  ggtitle("Histogram of Residuals") +
+  theme_classic() +
+  theme(text=element_text(size=10,  family="CM Sans"))
+
+resi.lev = ggplot(lm2) +
+  geom_point(aes(x = .hat,
+                 y = .stdresid,
+                 size = .cooksd,
+                 color = .cooksd), show.legend = FALSE) +
+  scale_color_continuous(low = "black", high = "red") +
+  xlab("Leverage") +
+  ylab("Standardized Residual") +
+  ggtitle("Residuals vs. Leverage") +
+  theme_classic() +
+  theme(text=element_text(size=10,  family="CM Sans"))
+
+resi.label = textGrob("Diagnostic Plots", gp=gpar(fontfamily = "CM Sans"))
+
+grid.arrange(resi.label, resi.plot, resi.hist, resi.lev)
+  
+```
+
+In the "Residuals Plot", we see that the variance of the residuals appears to be higher in the middle of the distribution, which violates the assumptions of the linear model. The large points in red indicate highlight the more extreme residuals. These red values should be further investigated. 
+
+The histogram of residuals shows that the distrubution is left skewed. The skewness likely comes from the points that have the high residuals seen in the "Residuals Plot." 
+
+In the "Residuals vs. Leverage" plot, the larger red points represent the more influential points (in terms of Cook's Distance). We see that the most extreme residual is highly influential. Again, this observation should be investigated in more detail.  
+
+
 # Part B
 
 ## 1. First you will explore type 1 and type 2 errors with a simple regression.
 
-### a. Simulate a random vector y of length 100 in which each element follows a normal distribution with mean 10 and variance 4. Then simulate a random vector x of length 100 with mean 3 and variance 1.
+### a. Simulate a random vector y of length 100 in which each element follows a normal distribution with mean 10 and variance 4. Then simulate a random vector x of length 100 with mean 3 and variance 1. 
+
+To simulate the random vectors, we used the rnorm function in R:
 
 ```{r}
 
+### Set seed for reproducibility
 set.seed(10)
 
+### Create vectors with 100 random draws 
 y = rnorm(n =100, mean = 10, sd = 2)
 x = rnorm(n = 100, mean = 3, sd = 1)
 
@@ -346,36 +431,55 @@ x = rnorm(n = 100, mean = 3, sd = 1)
 
 ### b. Regress y on x and save the p-value for the slope (HINT: use the summary.lm function or summary(lmobject) and use the coef element of the summary object if using R)
 
-```{r}
+The following R code regresses y on x and extracts the p values from the regression:
 
+```{r, results='asis'}
+
+### Regress y on x
 reg1 = lm(y ~ x)
 
+### Extract the p value
 reg1.sum = summary.lm(reg1)
-
 reg1.p = reg1.sum$coefficients[2,4]
+
+### Output p value 
+kable(reg1.p, format = "latex", col.names = "p value")
 
 ```
 
+We observe that the p value from the x coefficient is .566.
+
 ### c. What do you think this p-value should be?
+
+We expect the p value to be greater than .05, since we know that x and y are independent. 
 
 ### d. Now replicate this procedure 1000 times to develop a simulation.
 
+We used loops to create X and Y matrices such that each column of the matrix represents a vector of 100 random draws. We then used a loop to regress each column of Y on its corresponding column in X. Here is the R code for our simulation:
+
 ```{r}
 
+### Set seed for reproducibility
 set.seed(88)
 
+### Set number of draws and number of simulations
 n = 100
 n.sims = 1000
 
+
+### Initialize a matrix for x and y
 xs = matrix(0, nrow = n, ncol = n.sims)
 ys = matrix(0, nrow = n, ncol = n.sims)
 
+
+### Draw 100 Xs 1000 times and store them in the X matrix
 for (i in 1:n.sims) {
   
   xs[,i] = rnorm(n = 100, mean = 3, sd = 1)
   
 }
 
+### Draw 100 Ys 1000 times and store them in the y matrix
 for (i in 1:n.sims) {
   
   ys[,i] = rnorm(n =100, mean = 10, sd = 2)
@@ -383,9 +487,12 @@ for (i in 1:n.sims) {
 }
 
 
-
+### Initialize a vector to store p values
 ps = c()
 
+### Iteratively regress a column of the y matrix
+### on a column of the X matrix, then extract the p value
+### and store it in the p vector
 for (i in 1:n.sims) {
   
   reg = lm(ys[,i] ~ xs[,i])
@@ -401,31 +508,45 @@ for (i in 1:n.sims) {
 
 ###  e. Calculate the proportion of times the p-value is less than 0.05. How does this match with your intuition? [HINT: Should the slope be related to the outcome? What type of error are you simulating?]
 
+To calculate the proportion, we divided the count of p values < .05 by 1000 (the number of simulations):
+
 ```{r}
 
-length(which(ps < .05)) / n.sims
+### Calculate the proportion of p values which are less than .05
+answer.e = length(which(ps < .05)) / n.sims
 
+### Output Answer
+kable(answer.e, format = "latex", col.names = "Proportion of p < .05") %>%
+  kable_styling(latex_options = "HOLD_position")
 
 ```
 
-### f. 
+We observe that the proportion of p values less than .05 is .048. This matches our earlier intiution that most of the p values should be higher than .05. The slope of the regression should not be related to the outcome because Y and X are independent. In other words, we know that the null hypothesis is true. The regressions that rejected the null are examples of Type I error (they are false positives). 
 
-Now simulate y and x together so that the conditional mean of y given x is 10+x and the conditional variance is 1. Repeat b-e above for this distribution. How does your answer differ from the first simulation? What are you simulating now? [HINT: Consider if the slope is actually related to the outcome]
+### f. Now simulate y and x together so that the conditional mean of y given x is 10+x and the conditional variance is 1. Repeat b-e above for this distribution. How does your answer differ from the first simulation? What are you simulating now? [HINT: Consider if the slope is actually related to the outcome]
+
+We then repeated the simulation process, but this time the draws of Y were drawn from a normal distribution with a mean of 10+x and variance of 1. We then calculated the proportion of p values less than .05. Here is the R code for this simulation and calculation:
 
 ```{r}
 
+### Set seed for reproducibility
+set.seed(356)
 
-set.seed(99)
 
+### Initialize x and y matrices
 xs2 = matrix(0, nrow = n, ncol = n.sims)
 ys2 = matrix(0, nrow = n, ncol = n.sims)
 
+
+### Draw Xs and store as columns in X matrix
 for (i in 1:n.sims) {
   
   xs2[,i] = rnorm(n = 100, mean = 3, sd = 1)
   
 }
 
+
+### Draw Ys that have a mean taken from the corresponding X location + 10
 for (j in 1:n.sims) {
   
   for (i in 1:n) {
@@ -437,8 +558,12 @@ for (j in 1:n.sims) {
   
 }
 
-
+### Initialize a vector for p values
 ps2 = c()
+
+### Iteratively regress a column of the y matrix
+### on a column of the X matrix, then extract the p value
+### and store it in the p vector
 for (i in 1:n.sims) {
   
   reg = lm(ys2[,i] ~ xs2[,i])
@@ -449,12 +574,16 @@ for (i in 1:n.sims) {
   
 }
 
+### Calclulate the proportion of p values less than .05
+answer2 = length(which(ps2 < .05)) / n.sims
 
-length(which(ps2 < .05)) / n.sims
-
+### Output the proportion
+kable(answer2, format = "latex", col.names = "Proportion of p < .05") %>%
+  kable_styling(latex_options = "HOLD_position")
 
 ```
 
+We see that the proportion of p values less than .05 is 1 for this simulation. This time, we know that Y is conditional on X. We thus expect the slope coefficient to be related to the outcome. Since we know that the alternative hypothesis is true (that the slope is non zero), this simulation shows us the statistical power of our regression. Since the regression found statistical significance in all of our trials, we know that we have high power. In other words, the probability of type 2 error is low.
 
 ## 2. Now we will investigate overfitting which occurs when you are making too complex a model. First we will simulate some data in which y and multiple x's are unrelated.
 
@@ -462,15 +591,25 @@ length(which(ps2 < .05)) / n.sims
 
 ### b. Regress y on the X matrix and save the p-values from this regression. In R if you specify X as a matrix in the call to the lm() function, it will automatically use the formula y~x[,1]+x[,2]+… i.e. it will use the columns of the matrix as the predictors.
 
+We followed the same procedure in part 1, except now the X variables are drawn from a 3 variate normal distribution. Here is the R code for this simulation:
+
 ```{r}
 
+### Set seed for reproducibility
 set.seed(100)
+
+### Set number of parameters and create sigma
 params = 3
 sigma = diag(1, nrow = 3, ncol = 3)
 
-
+### Initialize a matrix for the p values to be stored in
 mv.ps = matrix(0, nrow = n.sims, ncol = params)
 
+
+### Draw Xs and Ys
+### Regress Y on X
+### Extract P values
+### Store p values in the p value matrix
 for (i in 1:n.sims) {
   
   x = mvrnorm(n = 100, mu = c(1,2,3), Sigma = sigma)
@@ -486,46 +625,77 @@ for (i in 1:n.sims) {
 
 ### c. Determine how many of the p-values for each variable are significant at the 0.05 level.
 
+Here is the R code that calculates the proportion of p values less than .05 for each variable:
 ```{r}
 
-apply(mv.ps, 2, function(x) length(which(x < .05)))
+### Calculate the proportion of p values less than .05
+### for each X (stored as columns)
+answer3 = apply(mv.ps, 2, function(x) length(which(x < .05))/n.sims)
+
+### Output p values
+kable(t(as.data.frame(answer3)), format = "latex",
+      col.names = c("X1", "X2", "X3"),
+      caption = "Proportion of p values < .05",
+      row.names = FALSE) %>%
+  kable_styling(latex_options = "HOLD_position")
 
 ```
 
+Since all of the variables are known to be independent, we expect these proportions to be around .05 (like it was in part 1). We observe that the proportions match our expectations. 
 
 ### d. Compute the minimum p-value for each regression and calculate how many times the minimum p-value is less than 0.05. Why is this answer different from those in question c?
 
+Next, we grab the minimum p value from each regression and calculate the proportion of times the minimum value is less than .05:
+
 ```{r}
 
+### Initialize a vector to store minimum p values
 min.p = c()
 
+### Extract minimum p value for each regression
 for (i in 1:n.sims) {
   
   min.p[i] = min(mv.ps[i,])
   
 }
 
+### Calculate the proportion where the minimum p value is < .05
+answer4 = length(which(min.p < .05))/1000
 
-length(which(min.p < .05))
-
+### Output proportion
+kable(answer4, format = "latex", col.names = "Proportion of min(p) < .05") %>%
+  kable_styling(latex_options = "HOLD_position")
 
 ```
 
+We see that the proportion of minimum pvalues < .05 is .151. This number is different than the individual proportions because we are looking at p values from three variables instead of one. We see that this about triples the chance of finding a p value less than .05. 
+
 ### e. Now repeat this exercise changing the number of predictors P so that you do it for P = 3, 5, 10, 20, 50, 90. Compute the minimum p-value in each simulated regression and plot the number of times you find at least one significant variable for each P. What pattern do you see? How do you explain this?
 
-```{r}
+We repeated the simulation for a vector of parameters:
 
+```{r, cache = TRUE}
+
+### Set seed for reproducibility
 set.seed(4)
 
+### Vector of parameters to simulate
 params = c(3, 5, 10, 20, 50, 90)
 
+### Initialize a matrix to store results from each simulation
 results = matrix(0, nrow = length(params), ncol = 2)
 
+### Create sigma with dims that equal number of variables
+### Initialize a matrix to store p values for each simulation
 for (i in 1:length(params)){
   
   sigma = diag(1, nrow = params[i], ncol = params[i])
   results[i, 1] = params[i]
   mv.ps = matrix(0, nrow = n.sims, ncol = params[i])
+
+### Draw Xs and Ys
+### Regress Y on X 
+### Extract p values and store in mv.ps
   
   for (j in 1:n.sims) {
     
@@ -537,9 +707,13 @@ for (i in 1:length(params)){
     mv.ps[j,] = reg.p
     
   }
-  
+
+### Grab the minimum p from each regression
+### Calculate the proportion of min(p) < .05
+### Store the p in our results matrix
+    
   min.p = apply(mv.ps, 1, min)
-  results[i, 2] = length(which(min.p < .05))
+  results[i, 2] = length(which(min.p < .05))/n.sims
   
   
   
@@ -548,22 +722,53 @@ for (i in 1:length(params)){
 
 ```
 
+Here is a line plot of the results from our simulation:
+
+```{r, echo = FALSE}
+
+as.data.frame(results) %>%
+  ggplot(aes(x = V1, y = V2)) + 
+  geom_line() +
+  geom_point(size = 2) +
+  ggtitle("Number of Predictors vs Probability of Type 1 Error") +
+  ylab("Probability of Type 1 Error") +
+  xlab("Number of Predictors") +
+  theme_classic() +
+  theme(text=element_text(size=10,  family="CM Sans")) +
+  scale_x_continuous(breaks = c(3, 5, 10, 20, 50, 90))
+
+```
+
+We see that the probability of type 1 error increases as the number of predictors goes to 50. After 50, the probability of type 1 error decreases.
+
 ### e. Set P equal to every number from 1 to 99 (i.e. you try models with all possible number of predictors) and run more simulations to reduce simulation error.
+
+Next, we repeate the above simulation using the number of predictors from 1 to 99:
 
 ```{r, cache=TRUE}
 
+### Set seed for reproducibility
 set.seed(4)
 
+### Set the number of predictors to check
 params = 1:99
 
+### Initialize a matrix to store our results in
 results2 = matrix(0, nrow = length(params), ncol = 2)
 
+
+### Create sigma with dims that equal number of variables
+### Initialize a matrix to store p values for each simulation
 for (i in 1:length(params)){
   
   sigma = diag(1, nrow = params[i], ncol = params[i])
   results2[i, 1] = params[i]
   mv.ps = matrix(0, nrow = n.sims, ncol = params[i])
   
+### Draw Xs and Ys
+### Regress Y on X 
+### Extract p values and store in mv.ps  
+  
   for (j in 1:n.sims) {
     
     x = mvrnorm(n = 100, mu = 1:params[i], Sigma = sigma)
@@ -575,9 +780,12 @@ for (i in 1:length(params)){
     
   }
   
-  min.p = apply(mv.ps, 1, min)
-  results2[i, 2] = length(which(min.p < .05))
+### Grab the minimum p from each regression
+### Calculate the proportion of min(p) < .05
+### Store the p in our results matrix 
   
+  min.p = apply(mv.ps, 1, min)
+  results2[i, 2] = length(which(min.p < .05))/n.sims
   
   
 }
@@ -585,4 +793,20 @@ for (i in 1:length(params)){
 
 ```
 
+Again, we create a line plot with the reults from our simulation:
 
+```{r, echo = FALSE}
+
+as.data.frame(results2) %>%
+  ggplot(aes(x = V1, y = V2)) + 
+  geom_line() +
+  geom_point(size = 2) +
+  ggtitle("Number of Predictors vs Probability of Type 1 Error") +
+  ylab("Probability of Type 1 Error") +
+  xlab("Number of Predictors") +
+  theme_classic() +
+  theme(text=element_text(size=10,  family="CM Sans"))
+
+```
+
+We see that the probability of type 1 error increases until the number of predictors is around 75. We see that the probability decreases steeply after. In our simulation, the sample size for each regression is 100. As the number of predictors approaches the number of observations, the degrees of freedom approach 0. This in effect widens the confidence intervals around each slope estimate, which reduces power. Since we decreases the probability of declaring any of the predictors significant, we thus decrease the chance of a false positive. Thus, the probability of type 1 error decreases when the number of predictors approaches the sample size. 
