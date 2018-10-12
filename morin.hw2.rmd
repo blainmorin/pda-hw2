@@ -45,7 +45,7 @@ baseline = baseline %>%
 
 ```
 
-Before model fitting, we first did some exploratory analysis of the data. Here is a summary table of the variables relavant to the assignment (observations with missing values were dropped from analysis): 
+Before model fitting, we first did some exploratory analysis of the data. Here is a summary table of the variables relevant to the assignment (observations with missing values were dropped from analysis): 
 
 ```{r, results='asis', echo = FALSE}
 
@@ -59,7 +59,7 @@ stargazer(as.data.frame(baseline),
 
 We see that the data set contains 1,249 complete observations. The first six rows have the summary statistics for the continuous variables (in order: glomerular filtration rate, baseline creatine, systolic blood pressure, diastolic blood pressure, urine protein, and age). The last two rows are binary variables (sex = 1 if male, black = 1 if black). For the binary variables, the mean represents the proportion of observations with that characteristic. 
 
-We then looked at scatterplots between each of the variable:
+We then looked at scatter plots between each of the variable:
 
 ```{r, echo = FALSE, warning=FALSE, fig.width=12, fig.height=12}
 
@@ -98,13 +98,13 @@ gpairs_lower(g)
 
 ```
 
-In the pairs plot above, the blue line is a linear model fit and the red line is a LOESS smooth fit. The first column of plots contains the relationship of our dependent variable (GFR) with all the independent variables in our data set. If the blue line has a positive slope, this indicates a positive relationship between GFR and the independent varbiable. For example, the positive slope in the GFR and sex plot may indicate the males have a higher GFR than women on average. 
+In the pairs plot above, the blue line is a linear model fit and the red line is a LOESS smooth fit. The first column of plots contains the relationship of our dependent variable (GFR) with all the independent variables in our data set. If the blue line has a positive slope, this indicates a positive relationship between GFR and the independent variable. For example, the positive slope in the GFR and sex plot may indicate the males have a higher GFR than women on average. 
 
-We see from the pairs plot that the relationship between GFR and baseline creatine and the relationship between GFR and baseline urine protien may not be linear. We also see in the baseline urine protien plot that the errors in the linear regression are higher for lower GFR values and they are for higher values. These heterogeneous erros would violate our linear model assumptions. We will try to fix these problems using transformations.
+We see from the pairs plot that the relationship between GFR and baseline creatine and the relationship between GFR and baseline urine protein may not be linear. We also see in the baseline urine protein plot that the errors in the linear regression are higher for lower GFR values and they are for higher values. These heterogeneous errors would violate our linear model assumptions. We will try to fix these problems using transformations.
 
-Another potential problem with our data is seen in the GFR and black plot. We see that there are observations for a larger range of GFRs for white people, whereas there are only observations of black people with low GFRs. This may represent a sampling bias, which would affect the validity of our counclusions. 
+Another potential problem with our data is seen in the GFR and black plot. We see that there are observations for a larger range of GFRs for white people, whereas there are only observations of black people with low GFRs. This may represent a sampling bias, which would affect the validity of our conclusions. 
 
-We then explored transformations of GFR, baseline creatine, and baseline urine protein using ladder plots (which create scatterplots of all the combinations of common transformations):
+We then explored transformations of GFR, baseline creatine, and baseline urine protein using ladder plots (which create scatter plots of all the combinations of common transformations):
 
 ```{r, echo = FALSE}
 
@@ -170,7 +170,7 @@ grid.arrange(qq.label, qqgfr, qqbascre, qqbaseu)
 
 In the QQ plots above, the diagonal line represents a perfect normal distribution. We see that the distribution of log(GFR) is a bit left skewed. For log(creatine), the sample quantile is less spread out than a normal distribution, which indicates that the sample data has thin tails. In the urine protein plot, we see that many of the points in the lower quantiles have the same value. This horizontal portion may represent a measurement threshold cutoff. 
 
-We then ran three linear models. We did not include diastolic blood pressure in any of the models because of its high correlation with systolic blood pressure. In the first model we regressed an untransformed GFR on all the other independent variables (except diastolic). In the second model, we used transformed variables as identified above. The third model is uses transformed variables, but drops urine protein from the regression (because of the lack of normality seen in its QQ plot). Here are the results from the three regressions:
+We then ran three linear models. We did not include diastolic blood pressure in any of the models because of its high correlation with systolic blood pressure. In the first model we regressed an untransformed GFR on all the other independent variables (except diastolic). In the second model, we used transformed variables as identified above. The third model uses transformed variables, but drops urine protein from the regression (because of the lack of normality seen in its QQ plot). Here are the results from the three regressions:
 
 ```{r, results='asis', echo = FALSE}
 
@@ -190,11 +190,12 @@ stargazer(lm1, lm2, lm3,
           header = FALSE, 
           se = NULL, 
           notes = "Standard errors in ()",
-          table.placement = "H" )
+          table.placement = "H",
+          title = "First 3 Models")
 
 ```
 
-We see from the improvement in r squared that model 2 and 3, which used transformed variables, is a better fit than model 1, which does not use transformed variables. Since the AIC is lower in model 2, we know that including log(urine protein) significantly improves our model fit, despite the possible measurement errors found above. 
+We see that the transformation choices in model 2 and 3 improved the fit compared to the untransformed regression model 1 (from R^2). Since the AIC is lower in model 2, we know that including log(urine protein) significantly improves our model fit, despite the possible measurement errors found above. 
 
 Next, we checked for variable interactions. From intuition, we decided to graphically check for interactions between race and creatine, urine protein, and blood pressure and also interactions between sex and creatine, urine protein, and blood pressure:
 
@@ -207,6 +208,9 @@ black.cre = baseline %>%
   ggplot(aes(x = I(log(bascre)), y = log(gfr))) + 
   geom_point(aes(color = as.factor(black)), size = .5) +
   geom_smooth(method = "lm", se = FALSE, aes(color = as.factor(black))) +
+  ggtitle("Baseline Creatine") +
+  xlab("log(Baseline Creatine)") +
+  ylab("logGFR") +
   theme_classic() +
   theme(text=element_text(size=10,  family="CM Sans"))
 
@@ -215,6 +219,9 @@ black.eu = baseline %>%
   ggplot(aes(x = I(log(baseu)), y = log(gfr))) + 
   geom_point(aes(color = as.factor(black)), size = .5, show.legend = FALSE) +
   geom_smooth(method = "lm", se = FALSE, aes(color = as.factor(black)), show.legend = FALSE) +
+  ggtitle("Baseline Urine Protein") +
+  xlab("log(Baseline Urine Protein)") +
+  ylab("logGFR") +
   theme_classic() +
   theme(text=element_text(size=10,  family="CM Sans"))
 
@@ -224,6 +231,9 @@ black.sbase = baseline %>%
   ggplot(aes(x = sbase, y = log(gfr))) + 
   geom_point(aes(color = as.factor(black)), size = .5, show.legend = FALSE) +
   geom_smooth(method = "lm", se = FALSE, aes(color = as.factor(black)), show.legend = FALSE) +
+  ggtitle("Baseline Blood Pressure") +
+  xlab("Blood Pressure") +
+  ylab("logGFR") +
   theme_classic() +
   theme(text=element_text(size=10,  family="CM Sans"))
 
@@ -244,8 +254,8 @@ male.cre = baseline %>%
   geom_point(aes(color = as.factor(SEX)), size = .5) +
   geom_smooth(method = "lm", se = FALSE, aes(color = as.factor(SEX))) +
   ggtitle("Baseline Creatine") +
-  xlab("GFR") +
-  ylab("Baseline Creatine ^-.5") +
+  xlab("Log(GFR)") +
+  ylab("log(Baseline Creatine)") +
   labs(color = "Sex") +
   theme_classic() +
   theme(text=element_text(size=10,  family="CM Sans"))
@@ -257,7 +267,7 @@ male.eu = baseline %>%
   geom_smooth(method = "lm", se = FALSE, aes(color = as.factor(SEX)), show.legend = FALSE) +
   ggtitle("Basline Urine Protein") +
   xlab("log(Baseline Urine Protein)") +
-  ylab("GFR") +
+  ylab("log(GFR)") +
   theme_classic() +
   theme(text=element_text(size=10,  family="CM Sans"))
 
@@ -325,7 +335,7 @@ anova.table %>%
 
 ```
 
-The rows highlighted in red in the table above show the variables with p values less than .05. We see the the interaction between log baseline creatine and lod baseline urine protein is significant. Adding this interaction to our model (2) from above, the new regression results are:
+The rows highlighted in red in the table above show the variables with p values less than .05. We see the the interaction between log baseline creatine and log baseline urine protein is significant. Adding this interaction to our model (2) from above, the new regression results are:
 
 ```{r, echo = FALSE, results = 'asis'}
 
@@ -343,7 +353,7 @@ stargazer(lm6,
 
 ```
 
-Although the new model has a better fit than model (2), the improvment is small. Since we did multiple comparisons to find the added interaction, we should be wary of including it in the model. Because the effect size and AIC improvement is relatively small, we elected to exclude the log baseline creatine and log baseline urine protein from our regression. Overall, our best model choice is model (2):
+Although the new model has a better fit than model (2), the improvement is small. Since we did multiple comparisons to find the added interaction, we should be wary of including it in the model. Because the effect size and AIC improvement is relatively small, we elected to exclude the log baseline creatine and log baseline urine protein from our regression. Overall, our best model choice is model (2):
 
 ```{r, echo = FALSE, results = 'asis'}
 
@@ -357,7 +367,7 @@ stargazer(lm2,
 
 ```
 
-The coefficient for log(bascre) means that for a 10% increase in baseline creatine, we expect an 11% decrease in GFR (1.1^-1.207 = .89). The coefficient for log(baseu) has a similar interpretation: for a 10% increase in baseline urine protein, we expect a .4% decrease in GFR (1.1^.039 = .996). The coefficient on systolic blood pressure means that for a one unit increase of blood pressure, we expect a .0002% decrease in GFR (exp(-.0002 = .9998)). The coefficient on age means that for every additional year of age, we expect a .002% decrease in GFR (exp(-.002 = .998)). The coefficient on sex means that we expect males to have a 27% higher GFR measurements than those of females (exp(.24) = 1.27). The coefficient on black means that we expect blacks to have a 12% higher GFR measurement than non-blacks (exp(.115) = 1.12).
+The coefficient for log(bascre) means that for a 10% increase in baseline creatine, we expect an 11% decrease in GFR (1.1^-1.207 = .89). The coefficient for log(baseu) has a similar interpretation: for a 10% increase in baseline urine protein, we expect a .4% decrease in GFR (1.1^.039 = .996). The coefficient on systolic blood pressure means that for a one unit increase of blood pressure, we expect a .0002% decrease in GFR (exp(-.0002 = .9998)). The coefficient on age means that for every additional year of age, we expect a .002% decrease in GFR (exp(-.002 = .998)). The coefficient on sex means that we expect males to have a 27% higher GFR measurement on average compared to females (exp(.24) = 1.27). The coefficient on black means that we expect blacks to have a 12% higher GFR measurement on average than compared to whites (exp(.115) = 1.12).
 
 Overall, all of the variables are significant at the .05 level except for systolic blood pressure. Lastly, we checked some regression diagnostics:
 
@@ -404,7 +414,7 @@ grid.arrange(resi.label, resi.plot, resi.hist, resi.lev)
 
 In the "Residuals Plot", we see that the variance of the residuals appears to be higher in the middle of the distribution, which violates the assumptions of the linear model. The large points in red indicate highlight the more extreme residuals. These red values should be further investigated. 
 
-The histogram of residuals shows that the distrubution is left skewed. The skewness likely comes from the points that have the high residuals seen in the "Residuals Plot." 
+The histogram of residuals shows that the distribution is left skewed. The skewness likely comes from the points that have the high residuals seen in the "Residuals Plot." 
 
 In the "Residuals vs. Leverage" plot, the larger red points represent the more influential points (in terms of Cook's Distance). We see that the most extreme residual is highly influential. Again, this observation should be investigated in more detail.  
 
@@ -521,11 +531,12 @@ kable(answer.e, format = "latex", col.names = "Proportion of p < .05") %>%
 
 ```
 
-We observe that the proportion of p values less than .05 is .048. This matches our earlier intiution that most of the p values should be higher than .05. The slope of the regression should not be related to the outcome because Y and X are independent. In other words, we know that the null hypothesis is true. The regressions that rejected the null are examples of Type I error (they are false positives). 
+We observe that the proportion of p values less than .05 is .048. This matches our earlier intuition that most of the p values should be higher than .05. The slope of the regression should not be related to the outcome because Y and X are independent. In other words, we know that the null hypothesis is true. The regressions that rejected the null are examples of Type I error (they are false positives). 
 
 ### f. Now simulate y and x together so that the conditional mean of y given x is 10+x and the conditional variance is 1. Repeat b-e above for this distribution. How does your answer differ from the first simulation? What are you simulating now? [HINT: Consider if the slope is actually related to the outcome]
 
 We then repeated the simulation process, but this time the draws of Y were drawn from a normal distribution with a mean of 10+x and variance of 1. We then calculated the proportion of p values less than .05. Here is the R code for this simulation and calculation:
+
 
 ```{r}
 
@@ -672,7 +683,7 @@ We see that the proportion of minimum pvalues < .05 is .151. This number is diff
 
 ### e. Now repeat this exercise changing the number of predictors P so that you do it for P = 3, 5, 10, 20, 50, 90. Compute the minimum p-value in each simulated regression and plot the number of times you find at least one significant variable for each P. What pattern do you see? How do you explain this?
 
-We repeated the simulation for a vector of parameters:
+We repeated the simulation for a vector of predictors:
 
 ```{r, cache = TRUE}
 
@@ -743,7 +754,7 @@ We see that the probability of type 1 error increases as the number of predictor
 
 ### e. Set P equal to every number from 1 to 99 (i.e. you try models with all possible number of predictors) and run more simulations to reduce simulation error.
 
-Next, we repeate the above simulation using the number of predictors from 1 to 99:
+Next, we repeat the above simulation using the number of predictors from 1 to 99:
 
 ```{r, cache=TRUE}
 
@@ -793,7 +804,7 @@ for (i in 1:length(params)){
 
 ```
 
-Again, we create a line plot with the reults from our simulation:
+Again, we create a line plot with the results from our simulation:
 
 ```{r, echo = FALSE}
 
@@ -810,3 +821,413 @@ as.data.frame(results2) %>%
 ```
 
 We see that the probability of type 1 error increases until the number of predictors is around 75. We see that the probability decreases steeply after. In our simulation, the sample size for each regression is 100. As the number of predictors approaches the number of observations, the degrees of freedom approach 0. This in effect widens the confidence intervals around each slope estimate, which reduces power. Since we decreases the probability of declaring any of the predictors significant, we thus decrease the chance of a false positive. Thus, the probability of type 1 error decreases when the number of predictors approaches the sample size. 
+
+# Appendix: Code
+
+##Setup:
+
+```{r, eval=FALSE}
+
+### Load required packages
+
+require(knitr) || install.packages("knitr")
+require(kableExtra) || install.packages("kableExtra")
+require(readr) || install.packages("readr")
+require(stargazer) || install.packages("stargazer")
+require(ggplot2) || install.packages("ggplot2")
+require(GGally) || install.packages("GGally")
+require(scales) || install.packages("scales")
+require(HH) || install.packages("HH")
+require(dplyr) || install.package("dplyr")
+require(grid) || install.packages("grid")
+require(gridExtra) || install.packages("gridExtra")
+require(extrafont) || install.packages("extrafont")
+require(extrafontdb) || install.packages("extrafontdb")
+require(MASS) || install.packages("MASS")
+
+### Add "Computer Modern Font"
+font_install('fontcm')
+
+
+```
+
+##Part A:
+
+```{r, eval=FALSE}
+
+### Read in data 
+baseline = read_csv("baseseg.csv")
+
+### Select relavent Columns (As per directions)
+baseline = baseline %>%
+  dplyr::select(gfr, bascre, sbase, dbase, baseu, AGE, SEX, black) %>%
+  filter(complete.cases(.))
+
+
+```
+
+```{r, eval=FALSE}
+
+### Create pairs plot
+
+
+### These functions pull off the diagonal of the pairs plot and cleans it up
+my_fn <- function(data, mapping, ...){
+  p <- ggplot(data = data, mapping = mapping) + 
+    geom_point() + 
+    geom_smooth(method=loess, fill="red", color="red", se = FALSE) +
+    geom_smooth(method=lm, fill="blue", color="blue", se = FALSE) +
+    scale_y_continuous(breaks = function(x) unique(floor(pretty(seq(0, (max(x) + 1) * 1.1)))))+
+    scale_x_continuous(breaks = function(x) unique(floor(pretty(seq(0, (max(x) + 1) * 1.1)))))+
+    theme_classic()
+  p
+}
+
+
+gpairs_lower <- function(g){
+  g$plots <- g$plots[-(1:g$nrow)]
+  g$yAxisLabels <- g$yAxisLabels[-1]
+  g$nrow <- g$nrow -1
+
+  g$plots <- g$plots[-(seq(g$ncol, length(g$plots), by = g$ncol))]
+  g$xAxisLabels <- g$xAxisLabels[-g$ncol]
+  g$ncol <- g$ncol - 1
+
+  g
+}
+
+g = baseline %>%
+  ggpairs(lower = list(continuous = my_fn),
+          upper  = list(continuous = "blank"),
+          diag  = list(continuous = "blankDiag")) +
+  ggtitle("Pairs Plot") +
+  theme(text=element_text(size=10,  family="CM Sans"))
+
+gpairs_lower(g)
+
+```
+
+```{r, eval = FALSE}
+
+### Changes fonts to CM Sans in the ladder plot
+pdf(family="CM Sans")
+
+trellis.par.set(grid.pars = list(fontfamily = "CM Sans")) 
+
+```
+
+```{r, eval = FALSE}
+
+### Creates Ladder plots
+ladder(gfr ~ bascre, data = baseline,
+       main.in = "Ladder of Powers: GFR and Creatine")
+
+ladder(gfr ~ baseu, data = baseline, 
+       main.in = "Ladder of Powers: GFR and Urine Protein")
+
+
+```
+
+```{r, eval = FALSE}
+
+### Creates QQ plots
+qqgfr = baseline %>% 
+  ggplot(aes(sample = log(gfr))) +
+  stat_qq() +
+  stat_qq_line() + 
+  ggtitle("QQ Plot: log(GFR)") +
+  xlab("Theoretical Score") +
+  ylab("Sample Score") +
+  theme_classic() +
+  theme(text=element_text(size=10,  family="CM Sans"))
+  
+
+qqbascre = baseline %>% 
+  ggplot(aes(sample = I(log(bascre)))) +
+  stat_qq() +
+  stat_qq_line() + 
+  ggtitle("log(QQ Plot: Base Creatine)") +
+  xlab("Theoretical Score") +
+  ylab("Sample Score") +
+  theme_classic() +
+  theme(text=element_text(size=10,  family="CM Sans"))
+
+qqbaseu = baseline %>% 
+  ggplot(aes(sample = I(log(baseu)))) +
+  stat_qq() +
+  stat_qq_line() + 
+  ggtitle("QQ Plot: log(Base Urine Protein)") +
+  xlab("Theoretical Score") +
+  ylab("Sample Score") +
+  theme_classic() +
+  theme(text=element_text(size=10,  family="CM Sans"))
+
+qq.label = textGrob("Transformation Choices", gp=gpar(fontfamily = "CM Sans"))
+
+grid.arrange(qq.label, qqgfr, qqbascre, qqbaseu)
+
+```
+
+```{r, eval = FALSE}
+
+### Creates models 1,2,3
+attach(baseline)
+
+lm1 = lm(gfr ~ bascre + baseu + sbase + AGE + as.factor(SEX) + as.factor(black))
+lm2 = lm(log(gfr) ~ log(bascre) + log(baseu) + sbase + AGE + as.factor(SEX) + as.factor(black))
+lm3 = lm(log(gfr) ~ log(bascre) + sbase + AGE + as.factor(SEX) + as.factor(black))
+
+lm1$AIC = AIC(lm1)
+lm2$AIC = AIC(lm2)
+lm3$AIC = AIC(lm3)
+
+detach(baseline)
+stargazer(lm1, lm2, lm3, 
+          keep.stat = c("aic", "rsq", "n"), 
+          header = FALSE, 
+          se = NULL, 
+          notes = "Standard errors in ()",
+          table.placement = "H" )
+
+```
+
+```{r, eval = FALSE}
+
+# Black Interactions
+
+### black and basecre
+black.cre = baseline %>%
+  ggplot(aes(x = I(log(bascre)), y = log(gfr))) + 
+  geom_point(aes(color = as.factor(black)), size = .5) +
+  geom_smooth(method = "lm", se = FALSE, aes(color = as.factor(black))) +
+  ggtitle("Baseline Creatine") +
+  xlab("log(Baseline Creatine)") +
+  ylab("logGFR") +
+  theme_classic() +
+  theme(text=element_text(size=10,  family="CM Sans"))
+
+### black and baseu
+black.eu = baseline %>%
+  ggplot(aes(x = I(log(baseu)), y = log(gfr))) + 
+  geom_point(aes(color = as.factor(black)), size = .5, show.legend = FALSE) +
+  geom_smooth(method = "lm", se = FALSE, aes(color = as.factor(black)), show.legend = FALSE) +
+  ggtitle("Baseline Urine Protein") +
+  xlab("log(Baseline Urine Protein)") +
+  ylab("logGFR") +
+  theme_classic() +
+  theme(text=element_text(size=10,  family="CM Sans"))
+
+
+### black and sbase
+black.sbase = baseline %>%
+  ggplot(aes(x = sbase, y = log(gfr))) + 
+  geom_point(aes(color = as.factor(black)), size = .5, show.legend = FALSE) +
+  geom_smooth(method = "lm", se = FALSE, aes(color = as.factor(black)), show.legend = FALSE) +
+  ggtitle("Baseline Blood Pressure") +
+  xlab("Blood Pressure") +
+  ylab("logGFR") +
+  theme_classic() +
+  theme(text=element_text(size=10,  family="CM Sans"))
+
+black.label = textGrob("Black Interactions", gp=gpar(fontfamily = "CM Sans"))
+
+grid.arrange(black.label, black.cre, black.eu, black.sbase)
+
+
+```
+
+```{r, eval = FALSE}
+
+# Male interactions
+
+### male and basecre
+male.cre = baseline %>%
+  ggplot(aes(x = I(log(bascre)), y = log(gfr))) + 
+  geom_point(aes(color = as.factor(SEX)), size = .5) +
+  geom_smooth(method = "lm", se = FALSE, aes(color = as.factor(SEX))) +
+  ggtitle("Baseline Creatine") +
+  xlab("Log(GFR)") +
+  ylab("log(Baseline Creatine)") +
+  labs(color = "Sex") +
+  theme_classic() +
+  theme(text=element_text(size=10,  family="CM Sans"))
+
+### black and baseu
+male.eu = baseline %>%
+  ggplot(aes(x = I(log(baseu)), y = log(gfr))) + 
+  geom_point(aes(color = as.factor(SEX)), size = .5, show.legend = FALSE) +
+  geom_smooth(method = "lm", se = FALSE, aes(color = as.factor(SEX)), show.legend = FALSE) +
+  ggtitle("Basline Urine Protein") +
+  xlab("log(Baseline Urine Protein)") +
+  ylab("log(GFR)") +
+  theme_classic() +
+  theme(text=element_text(size=10,  family="CM Sans"))
+
+
+### black and sbase
+male.sbase = baseline %>%
+  ggplot(aes(x = sbase, y = log(gfr))) + 
+  geom_point(aes(color = as.factor(SEX)), size = .5, show.legend = FALSE) +
+  geom_smooth(method = "lm", se = FALSE, aes(color = as.factor(SEX)), show.legend = FALSE) +
+  ggtitle("Baseline Systolic BP") +
+  xlab("Systolic BP") +
+  ylab("GFR") +
+  theme_classic() +
+  theme(text=element_text(size=10,  family="CM Sans"))
+
+male.label = textGrob("Male Interactions", gp=gpar(fontfamily = "CM Sans"))
+
+grid.arrange(male.label, male.cre, male.eu, male.sbase)
+
+```
+
+```{r, eval = FALSE}
+
+### Model 4
+attach(baseline)
+
+lm4 = lm(log(gfr) ~ I(bascre^(-.5)) + 
+           log(baseu) + 
+           sbase + AGE + 
+           as.factor(SEX) + as.factor(black) +
+           as.factor(black):sbase +
+           as.factor(SEX):sbase)
+
+lm4$AIC = AIC(lm4)
+
+stargazer(lm4, 
+          keep.stat = c("aic", "rsq", "n"), 
+          header = FALSE,
+          table.placement = "H" )
+
+detach(baseline)
+
+```
+
+```{r, eval = FALSE}
+
+### Check all second order interactions
+
+lm5 = lm(log(gfr) ~ (log(bascre) + log(baseu) + sbase + AGE + as.factor(SEX) + as.factor(black))^2, 
+         data = baseline)
+
+anova.table = as.data.frame(anova(lm5))
+
+anova.table = anova.table %>%
+  rename(p = "Pr(>F)")
+
+anova.table %>%
+  kable(format = "latex", booktabs = TRUE, caption = "All Second Order Interactions") %>%
+  row_spec(row = which(anova.table$p <.05), color = "red") %>%
+  kable_styling(latex_options = "HOLD_position")
+
+```
+
+```{r, eval = FALSE}
+
+### Model 6
+lm6 = lm(log(gfr) ~ log(bascre) + 
+           log(baseu) + sbase + AGE +
+           as.factor(SEX) + as.factor(black) + 
+           log(bascre):log(baseu), data = baseline)
+
+lm6$AIC = AIC(lm6)
+
+stargazer(lm6, 
+          keep.stat = c("aic", "rsq", "n"), 
+          header = FALSE, 
+          table.placement = "H" )
+
+```
+
+```{r, eval = FALSE}
+
+### Best model choice
+stargazer(lm2, 
+          keep.stat = c("aic", "rsq", "n"), 
+          header = FALSE, 
+          title = "Best Model",
+          se = NULL, 
+          notes = "Standard errors in ()",
+          table.placement = "H")
+
+```
+
+```{r, eval = FALSE}
+
+### Diagnostic Plots
+
+baseline$resis = residuals(lm2)
+
+resi.plot = ggplot(lm2) +
+  geom_point(aes(x = .fitted, 
+                 y = .stdresid, 
+                 color = abs(.stdresid),
+                 size = abs(.stdresid)), show.legend = FALSE) +
+  theme_classic() +
+  scale_color_continuous(low = "black", high = "red") +
+  xlab("Fitted Value") +
+  ylab("Standardized Residual") +
+  ggtitle("Residuals Plot") +
+  theme(text=element_text(size=10,  family="CM Sans"))
+
+resi.hist = ggplot(lm2) +
+  geom_histogram(aes(.resid), binwidth = .5,color = "black", fill = "white") +
+  xlab("Standardized Residual") +
+  ylab("Count") +
+  ggtitle("Histogram of Residuals") +
+  theme_classic() +
+  theme(text=element_text(size=10,  family="CM Sans"))
+
+resi.lev = ggplot(lm2) +
+  geom_point(aes(x = .hat,
+                 y = .stdresid,
+                 size = .cooksd,
+                 color = .cooksd), show.legend = FALSE) +
+  scale_color_continuous(low = "black", high = "red") +
+  xlab("Leverage") +
+  ylab("Standardized Residual") +
+  ggtitle("Residuals vs. Leverage") +
+  theme_classic() +
+  theme(text=element_text(size=10,  family="CM Sans"))
+
+resi.label = textGrob("Diagnostic Plots", gp=gpar(fontfamily = "CM Sans"))
+
+grid.arrange(resi.label, resi.plot, resi.hist, resi.lev)
+  
+```
+
+## Part B graphs:
+
+```{r, eval = FALSE}
+
+### Graph for 6 predictors
+
+as.data.frame(results) %>%
+  ggplot(aes(x = V1, y = V2)) + 
+  geom_line() +
+  geom_point(size = 2) +
+  ggtitle("Number of Predictors vs Probability of Type 1 Error") +
+  ylab("Probability of Type 1 Error") +
+  xlab("Number of Predictors") +
+  theme_classic() +
+  theme(text=element_text(size=10,  family="CM Sans")) +
+  scale_x_continuous(breaks = c(3, 5, 10, 20, 50, 90))
+
+```
+
+```{r, eval = FALSE}
+
+### Graph for 99 predictors
+
+as.data.frame(results2) %>%
+  ggplot(aes(x = V1, y = V2)) + 
+  geom_line() +
+  geom_point(size = 2) +
+  ggtitle("Number of Predictors vs Probability of Type 1 Error") +
+  ylab("Probability of Type 1 Error") +
+  xlab("Number of Predictors") +
+  theme_classic() +
+  theme(text=element_text(size=10,  family="CM Sans"))
+
+```
