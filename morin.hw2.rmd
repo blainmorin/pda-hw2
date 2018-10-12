@@ -195,7 +195,7 @@ stargazer(lm1, lm2, lm3,
 
 ```
 
-We see that the transformation choices in model 2 and 3 improved the fit compared to the untransformed regression model 1 (from R^2). Since the AIC is lower in model 2, we know that including log(urine protein) significantly improves our model fit, despite the possible measurement errors found above. 
+We see that the transformation choices in model 2 and 3 improve the fit compared to the untransformed regression model 1 (from R^2). Since the AIC is lower in model 2, we know that including log(urine protein) significantly improves our model fit, despite the possible measurement errors found above. 
 
 Next, we checked for variable interactions. From intuition, we decided to graphically check for interactions between race and creatine, urine protein, and blood pressure and also interactions between sex and creatine, urine protein, and blood pressure:
 
@@ -307,7 +307,8 @@ lm4$AIC = AIC(lm4)
 stargazer(lm4, 
           keep.stat = c("aic", "rsq", "n"), 
           header = FALSE,
-          table.placement = "H" )
+          table.placement = "H",
+          title = "Adding Interactions")
 
 detach(baseline)
 
@@ -594,13 +595,11 @@ kable(answer2, format = "latex", col.names = "Proportion of p < .05") %>%
 
 ```
 
-We see that the proportion of p values less than .05 is 1 for this simulation. This time, we know that Y is conditional on X. We thus expect the slope coefficient to be related to the outcome. Since we know that the alternative hypothesis is true (that the slope is non zero), this simulation shows us the statistical power of our regression. Since the regression found statistical significance in all of our trials, we know that we have high power. In other words, the probability of type 2 error is low.
+We see that the proportion of p values less than .05 is 1 for this simulation. This time, we know that Y is conditional on X. We thus expect the slope coefficient to be related to the outcome. Since we know that the alternative hypothesis is true (that the slope is non zero), this simulation shows us the statistical power of our regression. Because the regression found statistical significance in all of our trials, we know that we have high power. In other words, the probability of type 2 error is low.
 
 ## 2. Now we will investigate overfitting which occurs when you are making too complex a model. First we will simulate some data in which y and multiple x's are unrelated.
 
-### a. Extend the function you have written to carry out exercise 1 so that you now generate the same y vector as in 1a (i.e. 100 draws from N(10,4)) but you now generate 100 draws from an 3-variate multivariate normal X matrix with means 1, 2, 3 and covariance matrix equal to the identity matrix of rank 3 (i.e., each X variable has variance 1 and they are uncorrelated). [HiNT: use the mvrnorm function in the MASS library to generate multivariate normal draws].
-
-### b. Regress y on the X matrix and save the p-values from this regression. In R if you specify X as a matrix in the call to the lm() function, it will automatically use the formula y~x[,1]+x[,2]+… i.e. it will use the columns of the matrix as the predictors.
+### a + b. Extend the function you have written to carry out exercise 1 so that you now generate the same y vector as in 1a (i.e. 100 draws from N(10,4)) but you now generate 100 draws from an 3-variate multivariate normal X matrix with means 1, 2, 3 and covariance matrix equal to the identity matrix of rank 3 (i.e., each X variable has variance 1 and they are uncorrelated). [HiNT: use the mvrnorm function in the MASS library to generate multivariate normal draws]. Regress y on the X matrix and save the p-values from this regression. In R if you specify X as a matrix in the call to the lm() function, it will automatically use the formula y~x[,1]+x[,2]+… i.e. it will use the columns of the matrix as the predictors.
 
 We followed the same procedure in part 1, except now the X variables are drawn from a 3 variate normal distribution. Here is the R code for this simulation:
 
